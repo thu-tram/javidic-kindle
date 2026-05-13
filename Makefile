@@ -41,26 +41,25 @@ endif
 
 all: javidic.mobi
 
-cache:
-	mkdir $@
-	
-# Note that kindlegen was officially replaced by Kindle Previewer
-cache/kindlegen_linux_2.6_i386_v2_9.tar.gz: cache
-	wget -nv -O $@ https://www.dropbox.com/s/dl/vvg1n3mu04fdkoh
-
-# See also https://wiki.mobileread.com/wiki/KindleGen
-kindlegen: cache/kindlegen_linux_2.6_i386_v2_9.tar.gz
-	tar -xzf $< $@
-	touch $@
+# Check if kindlegen exists
+kindlegen:
+ifeq ($(OS), Windows_NT)
+# On Windows, we assume kindlepreviewer.bat is in the PATH
+else
+ifeq ($(ISWSL), TRUE)
+# On WSL, we assume kindlepreviewer.bat is accessible
+else
+	@if [ ! -f $(KINDLEGEN) ]; then \
+		echo "Error: kindlegen binary not found at $(KINDLEGEN)."; \
+		echo "Please download kindlegen manually and place it in the current directory."; \
+		echo "You can find it at: https://www.amazon.com/gp/feature.html?docId=1000765211 (or search for Kindlegen legacy downloads)"; \
+		exit 1; \
+	fi
+endif
+endif
 
 javidic.opf: javidic.py javidic_parser.py dictionary.py style.css javidic-frontmatter.html
 	$(PYTHON3) javidic.py $(FLAGS)
-
-jmdict.opf: style.css JMdict-frontmatter.html
-	$(PYTHON3) jmdict.py -a -s $(SENTENCES) -d j $(FLAGS)
-
-jmnedict.opf: style.css JMnedict-Frontmatter.html
-	$(PYTHON3) jmdict.py -d n $(FLAGS)
 
 %.mobi: %.opf kindlegen 
 ifeq ($(OS), Windows_NT)
