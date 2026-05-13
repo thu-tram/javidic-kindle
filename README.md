@@ -1,10 +1,8 @@
 # `javidic-kindle`
 
-![](screenshots/sample.png)
-
 | ![](screenshots/sample.png) | ![](screenshots/sample1.png) | ![](screenshots/sample3.png) |
 | --- | --- | --- |
-| | | |
+| *preview 1* | *chia động từ (javidic)* | *chia động từ (mazii)* |
 
 ## About
 
