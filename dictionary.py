@@ -170,6 +170,7 @@ def write_index(
     add_entry_info=True,
     out_language="en",
     creator="Electronic Dictionary Research & Development Group",
+    frontmatter="javidic-frontmatter.html",
 ):
     # http://www.mobipocket.com/dev/article.asp?basefolder=prcgen&file=indexing.htm
     # http://kindlegen.s3.amazonaws.com/AmazonKindlePublishingGuidelines.pdf
@@ -178,136 +179,131 @@ def write_index(
     # Sort entries alphabetically
     entries.sort(key=sort_function)
 
-    prev_section = None
+    # Assign sections and group entries
+    entries_by_section = {}
+    for entry in entries:
+        if len(entry.readings) > 0:
+            section = entry.readings[0].reb[0]
+        elif len(entry.kanjis) > 0:
+            section = entry.kanjis[0].keb[0]
+        else:
+            section = "?"
+        entry.section = section
+        if section not in entries_by_section:
+            entries_by_section[section] = []
+        entries_by_section[section].append(entry)
+
+    sections = sorted(entries_by_section.keys())
     dictionary_file_name = dictionary_name.replace(" ", "_")
 
-    stream = None
+    for section in sections:
+        filename = f"entry-{dictionary_file_name}-{section}.html"
+        with open(filename, "wt", encoding="UTF-8") as stream:
+            write_index_header(stream)
+            for entry in entries_by_section[section]:
+                # scriptable="yes" is needed, otherwise the results are cut off or results after the actual result are also dsiplayed
+                if default_index != None:
+                    if entry.entry_type == VOCAB_ENTRY:
+                        stream.write('<idx:entry name="v" scriptable="yes">\n')
+                    elif entry.entry_type == NAME_ENTRY:
+                        stream.write('<idx:entry name="n" scriptable="yes">\n')
+                    else:
+                        print(f"Not implemented entry type: {entry.entry_type}")
+                else:
+                    stream.write('<idx:entry scriptable="yes">\n')
 
-    sections = []
-    section_streams = {}
-
-    for entry in entries:
-        section = entry.section
-
-        if section != prev_section:
-            try:
-                stream = section_streams[section]
-            except KeyError:
-                sections.append(section)
-                filename = f"entry-{dictionary_file_name}-{section}.html"
-                stream = open(filename, "wt", encoding="UTF-8")
-                section_streams[section] = stream
-                write_index_header(stream)
-
-            prev_section = section
-
-        # scriptable="yes" is needed, otherwise the results are cut off or results after the actual result are also dsiplayed
-        if default_index != None:
-            if entry.entry_type == VOCAB_ENTRY:
-                stream.write('<idx:entry name="v" scriptable="yes">\n')
-            elif entry.entry_type == NAME_ENTRY:
-                stream.write('<idx:entry name="n" scriptable="yes">\n')
-            else:
-                print(f"Not implemented entry type: {entry.entry_type}")
-        else:
-            stream.write('<idx:entry scriptable="yes">\n')
-
-        assert entry.readings
-        if respect_re_restr:
-            special_readings = {}
-            readings = []
-            for reading in entry.readings:
-                if reading.re_restr:
-                    if not reading.re_restr in special_readings:
-                        special_readings[reading.re_restr] = []
-                    special_readings[reading.re_restr].append(reading)
-                readings.append(format_pronunciations(reading))
-            label = ";".join(readings)
-            if entry.kanjis:
-                label += (
-                    "【"
-                    + ";".join(
-                        [escape(kanji.keb, quote=False) for kanji in entry.kanjis]
-                    )
-                    + "】"
-                )
-
-            stream.write(f"<p class=lab>{label}</p>\n")
-
-            if len(special_readings.keys()) > 0:
-                for kanji in special_readings:
-                    label = ""
+                assert entry.readings
+                if respect_re_restr:
+                    special_readings = {}
                     readings = []
-                    for reading in special_readings[kanji]:
+                    for reading in entry.readings:
+                        if reading.re_restr:
+                            if not reading.re_restr in special_readings:
+                                special_readings[reading.re_restr] = []
+                            special_readings[reading.re_restr].append(reading)
                         readings.append(format_pronunciations(reading))
                     label = ";".join(readings)
-                    label += "【" + escape(kanji, quote=False) + "】"
-                    stream.write(f"<p class=lab>{label}</p>\n")
-        else:
-            label = ";".join([reading.reb for reading in entry.readings])
-            if entry.kanjis:
-                label += "【" + ";".join([kanji.keb for kanji in entry.kanjis]) + "】"
-
-        assert entry.senses
-
-        if len(entry.senses) > 0:
-            # stream.write(" <ul>\n")
-            for sense in entry.senses:
-                # stream.write("   <li>")
-                if sense.pos or sense.dial or sense.misc:
-                    stream.write(
-                        f"      <span class=pos>{escape(','.join(sense.pos + sense.dial + sense.misc))}</span>\n"
-                    )
-                gloss_text = escape('; '.join(sense.gloss), quote=False)
-                gloss_text = gloss_text.replace('\n', '<br/>')
-                stream.write(f"      {gloss_text}")
-                if len(sense.s_inf) > 0 and add_entry_info:
-                    stream.write("<br>\n")
-                    stream.write(
-                        f"      《{escape('; '.join(sense.s_inf), quote=True)}》"
-                    )
-                # stream.write("    </li>\n")
-            # stream.write(" </ul>\n")
-
-        if entry.entry_type == VOCAB_ENTRY and len(entry.sentences) > 0:
-            stream.write("<div class=ex>\n")
-            stream.write(' <span class="exh">Examples:</span>\n')
-            entry.sentences.sort(
-                reverse=True, key=lambda sentence: sentence.good_sentence
-            )
-            for sentence in entry.sentences:
-                stream.write(' <div class="sen">\n')
-                stream.write(f"  <span>{sentence.japanese}</span>\n")
-                stream.write("  <br>\n")
-                stream.write(f"  <span>{sentence.english}</span>\n")
-                stream.write(" </div>\n")
-            stream.write("</div>\n")
-
-        for ortho in entry.orthos:
-            stream.write(f' <idx:orth value="{escape(ortho.value, quote=True)}"')
-            if ortho.inflgrps:
-                stream.write(">\n")
-                for inflgrp in list(ortho.inflgrps.values()):
-                    assert inflgrp
-                    stream.write("  <idx:infl>\n")
-                    iforms = list(inflgrp)
-                    iforms.sort()
-                    for iform in iforms:
-                        stream.write(
-                            f'   <idx:iform value="{escape(iform, quote=True)}"/>\n'
+                    if entry.kanjis:
+                        label += (
+                            "【"
+                            + ";".join(
+                                [escape(kanji.keb, quote=False) for kanji in entry.kanjis]
+                            )
+                            + "】"
                         )
-                    stream.write("  </idx:infl>\n")
-                stream.write(" </idx:orth>\n")
-            else:
-                stream.write("/>\n")
 
-        stream.write("</idx:entry>\n")
+                    stream.write(f"<p class=lab>{label}</p>\n")
 
-        stream.write("<hr/>\n")
+                    if len(special_readings.keys()) > 0:
+                        for kanji in special_readings:
+                            label = ""
+                            readings = []
+                            for reading in special_readings[kanji]:
+                                readings.append(format_pronunciations(reading))
+                            label = ";".join(readings)
+                            label += "【" + escape(kanji, quote=False) + "】"
+                            stream.write(f"<p class=lab>{label}</p>\n")
+                else:
+                    label = ";".join([reading.reb for reading in entry.readings])
+                    if entry.kanjis:
+                        label += "【" + ";".join([kanji.keb for kanji in entry.kanjis]) + "】"
 
-    for stream in list(section_streams.values()):
-        write_index_footer(stream)
-        stream.close()
+                assert entry.senses
+
+                if len(entry.senses) > 0:
+                    # stream.write(" <ul>\n")
+                    for sense in entry.senses:
+                        # stream.write("   <li>")
+                        if sense.pos or sense.dial or sense.misc:
+                            stream.write(
+                                f"      <span class=pos>{escape(','.join(sense.pos + sense.dial + sense.misc))}</span>\n"
+                            )
+                        gloss_text = escape('; '.join(sense.gloss), quote=False)
+                        gloss_text = gloss_text.replace('\n', '<br/>')
+                        stream.write(f"      {gloss_text}")
+                        if len(sense.s_inf) > 0 and add_entry_info:
+                            stream.write("<br>\n")
+                            stream.write(
+                                f"      《{escape('; '.join(sense.s_inf), quote=True)}》"
+                            )
+                        # stream.write("    </li>\n")
+                    # stream.write(" </ul>\n")
+
+                if entry.entry_type == VOCAB_ENTRY and len(entry.sentences) > 0:
+                    stream.write("<div class=ex>\n")
+                    stream.write(' <span class="exh">Examples:</span>\n')
+                    entry.sentences.sort(
+                        reverse=True, key=lambda sentence: sentence.good_sentence
+                    )
+                    for sentence in entry.sentences:
+                        stream.write(' <div class="sen">\n')
+                        stream.write(f"  <span>{sentence.japanese}</span>\n")
+                        stream.write("  <br>\n")
+                        stream.write(f"  <span>{sentence.english}</span>\n")
+                        stream.write(" </div>\n")
+                    stream.write("</div>\n")
+
+                for ortho in entry.orthos:
+                    stream.write(f' <idx:orth value="{escape(ortho.value, quote=True)}"')
+                    if ortho.inflgrps:
+                        stream.write(">\n")
+                        for inflgrp in list(ortho.inflgrps.values()):
+                            assert inflgrp
+                            stream.write("  <idx:infl>\n")
+                            iforms = list(inflgrp)
+                            iforms.sort()
+                            for iform in iforms:
+                                stream.write(
+                                    f'   <idx:iform value="{escape(iform, quote=True)}"/>\n'
+                                )
+                            stream.write("  </idx:infl>\n")
+                        stream.write(" </idx:orth>\n")
+                    else:
+                        stream.write("/>\n")
+
+                stream.write("</idx:entry>\n")
+                stream.write("<hr/>\n")
+            write_index_footer(stream)
 
     # create cover
     createCover(dictionary_name, title, 768, 1024)
@@ -357,7 +353,7 @@ def write_index(
     )
     stream.write('    <item id="css" href="style.css" media-type="text/css"/>\n')
     stream.write(
-        f'    <item id="frontmatter" href="{dictionary_file_name}-frontmatter.html" media-type="text/x-oeb1-document"/>\n'
+        f'    <item id="frontmatter" href="{frontmatter}" media-type="text/x-oeb1-document"/>\n'
     )
     for i in range(len(sections)):
         section = sections[i]

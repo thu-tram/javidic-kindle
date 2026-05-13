@@ -58,8 +58,18 @@ else
 endif
 endif
 
+DICT_NAME ?= javidic
+DICT_TITLE ?= "Từ điển Nhật-Việt Javidic"
+DICT_DIR ?= dict-data
+DICT_LANG ?= vi
+DICT_CREATOR ?= "Javidic (converted to Kindle)"
+
 javidic.opf: javidic.py javidic_parser.py dictionary.py style.css javidic-frontmatter.html
-	$(PYTHON3) javidic.py $(FLAGS)
+	$(PYTHON3) javidic.py $(FLAGS) -d $(DICT_DIR) -n $(DICT_NAME) -t $(DICT_TITLE) -l $(DICT_LANG) -c $(DICT_CREATOR)
+
+# For generic mobi generation from any name
+%.opf: javidic.py javidic_parser.py dictionary.py style.css javidic-frontmatter.html
+	$(PYTHON3) javidic.py $(FLAGS) -d $(DICT_DIR) -n $(basename $@) -t $(DICT_TITLE) -l $(DICT_LANG) -c $(DICT_CREATOR)
 
 %.mobi: %.opf kindlegen 
 ifeq ($(OS), Windows_NT)

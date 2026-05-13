@@ -19,6 +19,44 @@ def get_args():
         help="If this flag is set pronunciations will be added.",
     )
     arg_parser.add_argument(
+        "-d",
+        "--dict-dir",
+        default="dict-data",
+        help="Directory containing the Yomichan dictionary files (default: dict-data)",
+    )
+    arg_parser.add_argument(
+        "-n",
+        "--name",
+        default="javidic",
+        help="Base name for the generated files (default: javidic)",
+    )
+    arg_parser.add_argument(
+        "-t",
+        "--title",
+        default="Từ điển Nhật-Việt Javidic",
+        help="Display title of the dictionary",
+    )
+    arg_parser.add_argument(
+        "-l",
+        "--lang",
+        default="vi",
+        help="Output language of the dictionary (default: vi)",
+    )
+    arg_parser.add_argument(
+        "-f",
+        "--frontmatter",
+        default="javidic-frontmatter.html",
+        help="Frontmatter HTML file used in the OPF manifest (default: javidic-frontmatter.html)",
+    )
+    # existing creator arg
+    arg_parser.add_argument(
+        "-c",
+        "--creator",
+        default="Javidic (converted to Kindle)",
+        help="Creator/Copyright metadata",
+    )
+
+    arg_parser.add_argument(
         "-i",
         "--info",
         action="store_true",
@@ -32,8 +70,8 @@ from pronunciation import Pronunciation
 def main():
     args = get_args()
 
-    sys.stderr.write("Parsing Javidic data...\n")
-    parser = JavidicParser("dict-data")
+    sys.stderr.write(f"Parsing dictionary from {args.dict_dir}...\n")
+    parser = JavidicParser(args.dict_dir)
     entries = parser.parse()
     
     if args.pronunciation:
@@ -44,18 +82,17 @@ def main():
         
     sys.stderr.write(f"Created {len(entries)} entries\n")
 
-    sys.stderr.write("Creating files for Javidic Kindle Dictionary...\n")
-    # Output to stdout or a file? jmdict.py uses sys.stdout for some reason but write_index opens its own files.
-    # write_index(entries, dictionary_name, title, stream, ...)
+    sys.stderr.write(f"Creating files for {args.title}...\n")
     write_index(
         entries,
-        "javidic",
-        "Từ điển Nhật-Việt Javidic",
+        args.name,
+        args.title,
         sys.stdout,
         default_index=VOCAB_INDEX,
         add_entry_info=args.info,
-        out_language="vi",
-        creator="Javidic (converted to Kindle)"
+        out_language=args.lang,
+        creator=args.creator,
+        frontmatter=args.frontmatter
     )
     sys.stderr.write("Done!\n")
 

@@ -2,7 +2,13 @@
 
 ![](screenshots/sample.png)
 
+| ![](screenshots/sample.png) | ![](screenshots/sample1.png) | ![](screenshots/sample3.png) |
+| --- | --- | --- |
+| | | |
+
 ## About
+
+Dựa trên [jmdict-kindle/jmdict-kindle](https://github.com/jmdict-kindle/jmdict-kindle).
 
 (*Từ điển Nhật - Việt cho Kindle dựa trên dữ liệu từ điển từ JaViDic*)
 
@@ -10,6 +16,18 @@ This is a Japanese-Vietnamese dictionary based on the Javidic database (converte
 
 > [!NOTE]  
 > Phiên bản điện tử của từ điển được tạo ở đây chỉ được phép sử dụng cho mục đích giáo dục và phi lợi nhuận (For educational and non-commercial purposes only).
+
+## Guide
+
+- `-d` hoặc `--dict-dir`: Thư mục chứa dữ liệu Yomichan (Mặc định: `dict-data`).
+- `-n` hoặc `--name`: Tên gốc của các tệp tạo ra (Mặc định: `javidic`).
+- `-t` hoặc `--title`: Tiêu đề hiển thị của từ điển (Mặc định: `Từ điển Nhật-Việt Javidic`).
+- `-l` hoặc `--lang`: Ngôn ngữ của nghĩa từ điển (Mặc định: `vi`).
+- `-c` hoặc `--creator`: Thông tin tác giả/bản quyền (Mặc định: `Javidic (converted to Kindle)`).
+
+```bash
+python3 javidic.py -d meikyo-data -n meikyo -t "Từ điển Meikyo" -l ja -c "Meikyo Group"
+```
 
 ## Build
 
@@ -24,6 +42,7 @@ make javidic.mobi
 ## Tải
 
 - [javidic.mobi](https://github.com/thu-tram/javidic-kindle/releases/download/v1.0/javidic.mobi)
+- [mazii.mobi](https://github.com/thu-tram/javidic-kindle/releases/download/v1.0/mazii.mobi)
 
 ## Credits
 
