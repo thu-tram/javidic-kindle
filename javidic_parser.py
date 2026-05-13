@@ -9,11 +9,12 @@ from inflections import inflect, InflectionError
 class JavidicParser:
     def __init__(self, dict_dir):
         self.dict_dir = dict_dir
-        self.entries = []
 
     def parse(self):
         term_banks = [f for f in os.listdir(self.dict_dir) if f.startswith('term_bank_') and f.endswith('.json')]
         term_banks.sort()
+
+        entries_dict = {}
 
         for bank_file in term_banks:
             path = os.path.join(self.dict_dir, bank_file)
@@ -23,9 +24,20 @@ class JavidicParser:
                 for entry_data in data:
                     entry = self.parse_entry(entry_data)
                     if entry:
-                        self.entries.append(entry)
+                        # Create a key to deduplicate
+                        # Normalized kanjis and readings
+                        k_vals = sorted([k.keb for k in entry.kanjis])
+                        r_vals = sorted([r.reb for r in entry.readings])
+                        key = (tuple(k_vals), tuple(r_vals))
+                        
+                        if key not in entries_dict:
+                            entries_dict[key] = entry
+                        else:
+                            # Keep the one with longer glossary
+                            if len(entry.senses[0].gloss[0]) > len(entries_dict[key].senses[0].gloss[0]):
+                                entries_dict[key] = entry
         
-        return self.entries
+        return list(entries_dict.values())
 
     def parse_entry(self, entry_data):
         # Yomichan format: [kanji, reading, definition_tags, rules, score, glossary, sequence, term_tags]
@@ -59,20 +71,29 @@ class JavidicParser:
         readings = []
         orthos = []
 
-        orthos.append(Ortho(kanji_val, 0, {}))
-        if not is_kana(kanji_val):
-            kanjis.append(Kanji(kanji_val, 0))
-        else:
+        # Logic to separate kanji and kana correctly
+        if is_kana(kanji_val):
             readings.append(Reading(kanji_val, 0, None, None))
+            orthos.append(Ortho(kanji_val, 0, {}))
+        else:
+            kanjis.append(Kanji(kanji_val, 0))
+            orthos.append(Ortho(kanji_val, 0, {}))
 
         if final_reading and final_reading != kanji_val:
-            orthos.append(Ortho(final_reading, 0, {}))
-            readings.append(Reading(final_reading, 0, None, None))
+            if is_kana(final_reading):
+                if Reading(final_reading, 0, None, None) not in readings:
+                    readings.append(Reading(final_reading, 0, None, None))
+                    orthos.append(Ortho(final_reading, 0, {}))
+            else:
+                if Kanji(final_reading, 0) not in kanjis:
+                    kanjis.append(Kanji(final_reading, 0))
+                    orthos.append(Ortho(final_reading, 0, {}))
 
         if not readings:
+            # Still need at least one reading for dictionary.py
             readings.append(Reading(kanji_val, 0, None, None))
 
-        word_for_inflection = final_reading if final_reading else kanji_val
+        word_for_inflection = readings[0].reb
         mapped_pos = self.map_pos(pos_list, word_for_inflection)
         
         for ortho in orthos:
@@ -88,8 +109,6 @@ class JavidicParser:
                         if infl_dict:
                             ortho.inflgrps[pos] = set(infl_dict.values())
 
-        # Pass the full text as a single gloss string. 
-        # We will modify dictionary.py to handle newlines in this string.
         senses = [Sense([], [], [full_text], [], [])]
 
         return Entry(senses, orthos, kanjis, readings, sentences=[], entry_type=VOCAB_ENTRY)
