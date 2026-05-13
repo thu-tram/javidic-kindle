@@ -77,6 +77,9 @@ else
 endif
 endif
 
+test:
+	PYTHONPATH=. $(PYTHON3) -m unittest discover tests
+
 clean:
 	rm -rf *.opf entry-*.html *cover.jpg *.tar.bz2 *.gz *.csv *cover.png *.tmp *.zip out cache
 	rm -f javidic.opf entry-javidic-*.html javidic-cover.jpg

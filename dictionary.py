@@ -251,21 +251,23 @@ def write_index(
         assert entry.senses
 
         if len(entry.senses) > 0:
-            stream.write(" <ul>\n")
+            # stream.write(" <ul>\n")
             for sense in entry.senses:
-                stream.write("   <li>")
+                # stream.write("   <li>")
                 if sense.pos or sense.dial or sense.misc:
                     stream.write(
                         f"      <span class=pos>{escape(','.join(sense.pos + sense.dial + sense.misc))}</span>\n"
                     )
-                stream.write(f"      {escape('; '.join(sense.gloss), quote=False)}")
+                gloss_text = escape('; '.join(sense.gloss), quote=False)
+                gloss_text = gloss_text.replace('\n', '<br/>')
+                stream.write(f"      {gloss_text}")
                 if len(sense.s_inf) > 0 and add_entry_info:
                     stream.write("<br>\n")
                     stream.write(
                         f"      《{escape('; '.join(sense.s_inf), quote=True)}》"
                     )
-                stream.write("    </li>\n")
-            stream.write(" </ul>\n")
+                # stream.write("    </li>\n")
+            # stream.write(" </ul>\n")
 
         if entry.entry_type == VOCAB_ENTRY and len(entry.sentences) > 0:
             stream.write("<div class=ex>\n")

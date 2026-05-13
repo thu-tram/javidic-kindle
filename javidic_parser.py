@@ -33,32 +33,48 @@ class JavidicParser:
         reading_val = entry_data[1]
         glossary_list = entry_data[5]
 
-        extracted_reading, pos_list, glosses, examples = self.parse_glossary(glossary_list)
+        if not glossary_list:
+            return None
+            
+        full_text = glossary_list[0]
+        lines = full_text.split('\n')
         
-        # Use reading from field if available, otherwise from glossary
-        final_reading = reading_val if reading_val else extracted_reading
-        if not final_reading:
-            final_reading = kanji_val
+        extracted_reading = ""
+        pos_list = []
+        
+        if lines and lines[0].startswith('「') and lines[0].endswith('」'):
+            extracted_reading = lines[0][1:-1]
+        
+        if len(lines) > 1:
+            line = lines[1].strip()
+            pos_match = re.search(r'〘(.*?)〙', line)
+            if pos_match:
+                pos_list = [p.strip() for p in pos_match.group(1).split(',')]
+            elif re.match(r'^[a-zA-Z, ]+$', line) and line:
+                pos_list = [p.strip() for p in line.split(',')]
 
-        # Create Orthos, Kanjis, Readings
+        final_reading = reading_val if reading_val else extracted_reading
+        
         kanjis = []
         readings = []
         orthos = []
 
-        if kanji_val != final_reading:
+        orthos.append(Ortho(kanji_val, 0, {}))
+        if not is_kana(kanji_val):
             kanjis.append(Kanji(kanji_val, 0))
-            orthos.append(Ortho(kanji_val, 0, {}))
-            
-        readings.append(Reading(final_reading, 0, None, None))
-        orthos.append(Ortho(final_reading, 0, {}))
+        else:
+            readings.append(Reading(kanji_val, 0, None, None))
 
-        # Map POS for inflections
-        mapped_pos = self.map_pos(pos_list, final_reading)
+        if final_reading and final_reading != kanji_val:
+            orthos.append(Ortho(final_reading, 0, {}))
+            readings.append(Reading(final_reading, 0, None, None))
+
+        if not readings:
+            readings.append(Reading(kanji_val, 0, None, None))
+
+        word_for_inflection = final_reading if final_reading else kanji_val
+        mapped_pos = self.map_pos(pos_list, word_for_inflection)
         
-        # Aggregate the POS of all senses (in Javidic we usually have one group of senses per entry)
-        senses = [Sense(pos_list, [], glosses, [], [])]
-
-        # Handle inflections
         for ortho in orthos:
             if not is_katakana(ortho.value):
                 for pos in mapped_pos:
@@ -66,75 +82,17 @@ class JavidicParser:
                         infl_dict = inflect(ortho.value, pos)
                     except InflectionError:
                         pass
-                    except Exception as e:
-                        # sys.stderr.write(f"warning: inflection error for {ortho.value} [{pos}]: {e}\n")
+                    except Exception:
                         pass
                     else:
                         if infl_dict:
                             ortho.inflgrps[pos] = set(infl_dict.values())
 
-        # Sentences
-        sentences = []
-        for jap, vie in examples:
-            sentences.append(Sentence(vie, jap, True))
+        # Pass the full text as a single gloss string. 
+        # We will modify dictionary.py to handle newlines in this string.
+        senses = [Sense([], [], [full_text], [], [])]
 
-        return Entry(senses, orthos, kanjis, readings, sentences=sentences, entry_type=VOCAB_ENTRY)
-
-    def parse_glossary(self, glossary_list):
-        if not glossary_list:
-            return "", [], [], []
-        
-        # Usually Javidic has one large string in glossary_list
-        text = glossary_list[0]
-        lines = text.split('\n')
-        
-        reading = ""
-        pos = []
-        glosses = []
-        examples = []
-        
-        current_line_idx = 0
-        
-        # 1. Reading extraction 「...」
-        if current_line_idx < len(lines) and lines[current_line_idx].startswith('「') and lines[current_line_idx].endswith('」'):
-            reading = lines[current_line_idx][1:-1]
-            current_line_idx += 1
-        
-        # 2. POS extraction 〘...〙 or tag lines
-        if current_line_idx < len(lines):
-            line = lines[current_line_idx].strip()
-            pos_match = re.search(r'〘(.*?)〙', line)
-            if pos_match:
-                pos = [p.strip() for p in pos_match.group(1).split(',')]
-                current_line_idx += 1
-            elif re.match(r'^[a-zA-Z, ]+$', line) and line:
-                pos = [p.strip() for p in line.split(',')]
-                current_line_idx += 1
-                
-        # 3. Definitions and Examples
-        i = current_line_idx
-        while i < len(lines):
-            line = lines[i].strip()
-            if not line:
-                i += 1
-                continue
-            
-            if line.endswith(':'):
-                japanese = line[:-1].strip()
-                i += 1
-                if i < len(lines):
-                    vietnamese = lines[i].strip()
-                    examples.append((japanese, vietnamese))
-                else:
-                    glosses.append(line)
-            elif ':' in line:
-                parts = line.split(':', 1)
-                examples.append((parts[0].strip(), parts[1].strip()))
-            else:
-                glosses.append(line)
-            i += 1
-                
-        return reading, pos, glosses, examples
+        return Entry(senses, orthos, kanjis, readings, sentences=[], entry_type=VOCAB_ENTRY)
 
     def map_pos(self, javidic_pos, word):
         mapped = []
