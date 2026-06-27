@@ -1,6 +1,6 @@
 # `javidic-kindle`
 
-| ![](screenshots/sample.png) | ![](screenshots/sample1.png) |
+| ![](screenshots/sample.png) | ![](screenshots/sample2.png) |
 | --- | --- |
 | *thử tra một từ bất kì* | *chia động từ (javidic)* |
 
